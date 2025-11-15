@@ -30,15 +30,17 @@ import dev.brahmkshatriya.echo.common.models.Shelf
 import dev.brahmkshatriya.echo.common.models.Streamable
 import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.common.models.User
+import dev.brahmkshatriya.echo.common.settings.Setting
+import dev.brahmkshatriya.echo.common.settings.SettingTextInput
 import dev.brahmkshatriya.echo.common.settings.Settings
 import okhttp3.OkHttpClient
 
 class GDriveExtension : ExtensionClient, LoginClient.WebView, 
     HomeFeedClient, LibraryFeedClient, SearchFeedClient, 
     TrackClient, PlaylistClient, RadioClient {
-    
+
     private val client = OkHttpClient.Builder().build()
-    
+
     private lateinit var settings: Settings
     private val authManager = AuthenticationManager()
     private lateinit var apiClient: GDriveApiClient
@@ -49,6 +51,10 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     override fun setSettings(settings: Settings) {
         this.settings = settings
+        
+        // Load custom metadata into mapper
+        DriveToEchoMapper.loadCustomMetadata(settings.getString("custom_metadata"))
+        
         this.apiClient = GDriveApiClient(client, authManager)
         this.folderRepo = MusicFolderRepository(apiClient, authManager)
         this.paginationManager = PlaylistPaginationManager(apiClient)
@@ -88,7 +94,14 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     // Settings
 
-    override suspend fun getSettingItems() = listOf<dev.brahmkshatriya.echo.common.settings.Setting>()
+    override suspend fun getSettingItems() = listOf<Setting>(
+        SettingTextInput(
+            title = "Custom Metadata JSON",
+            key = "custom_metadata",
+            summary = "Override Drive metadata with your own artist/album/artwork info",
+            defaultValue = ""
+        )
+    )
 
     // Home Feed
 
@@ -102,11 +115,11 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     private suspend fun loadMusicLibrary(folderId: String): Feed<Shelf> {
         val items = folderRepo.loadFolderContents(folderId)
-        
+
         val (folders, mediaFiles) = DriveToEchoMapper.partitionFiles(items)
         val playlists = DriveToEchoMapper.toPlaylists(folders)
         val tracks = DriveToEchoMapper.toTracks(mediaFiles)
-        
+
         return FeedBuilder.buildLibraryFeed(playlists, tracks, folderId)
     }
 
@@ -114,11 +127,11 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     override suspend fun loadSearchFeed(query: String): Feed<Shelf> {
         if (query.isBlank()) return loadHomeFeed()
-        
+
         val items = folderRepo.searchInFolder(folderRepo.getMusicFolderId(), query)
         val tracks = DriveToEchoMapper.toTracks(items)
         val playlists = DriveToEchoMapper.toPlaylists(items)
-        
+
         return FeedBuilder.buildSearchFeed(tracks, playlists)
     }
 
@@ -146,10 +159,9 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     override suspend fun loadPlaylist(playlist: Playlist): Playlist {
         val totalTrackCount = paginationManager.getOrCountTracks(playlist.id)
-        
+
         return playlist.copy(
             trackCount = totalTrackCount
-           
         )
     }
 
@@ -157,10 +169,11 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
         val pagedData = paginationManager.getOrCreatePagedData(playlist.id)
         return pagedData.toFeed()
     }
-    
+
     override suspend fun loadFeed(playlist: Playlist): Feed<Shelf>? = null 
 
     // Radio
+    
     override suspend fun radio(item: EchoMediaItem, context: EchoMediaItem?): Radio {
         return radioService.createRadio(item, context)
     }
@@ -171,3 +184,27 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
         return radioService.loadRadioTracks(radio)
     }
 }
+
+/*
+ * CUSTOM METADATA JSON FORMAT:
+ * 
+ * {
+ *   "metadata": [
+ *     {
+ *       "fileId": "1ABC123XYZ",
+ *       "title": "Song Title",
+ *       "artist": "Artist Name",
+ *       "album": "Album Name",
+ *       "albumArt": "https://drive.google.com/uc?export=view&id=1IMG123",
+ *       "year": "2024",
+ *       "genre": "Rock",
+ *       "duration": 180
+ *     }
+ *   ]
+ * }
+ * 
+ * CHANGES MADE:
+ * ✅ Added custom metadata settings field
+ * ✅ Loads metadata in setSettings()
+ * ✅ Works with enhanced DriveToEchoMapper
+ */
