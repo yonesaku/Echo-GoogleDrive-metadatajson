@@ -59,7 +59,19 @@ object DriveToEchoMapper {
         val customMeta = customMetadataMap[driveFile.id]
         
         val title = customMeta?.title ?: MediaFileUtils.cleanTitle(driveFile.title)
-        val coverUrl = customMeta?.albumArt ?: MediaFileUtils.getThumbnailUrl(driveFile.id)
+        
+        // Create proper NetworkRequestImageHolder for custom album art
+        val coverHolder = if (customMeta?.albumArt != null) {
+            dev.brahmkshatriya.echo.common.models.ImageHolder.NetworkRequestImageHolder(
+                request = dev.brahmkshatriya.echo.common.models.NetworkRequest(
+                    url = customMeta.albumArt,
+                    headers = emptyMap()
+                ),
+                crop = false
+            )
+        } else {
+            MediaFileUtils.getThumbnailUrl(driveFile.id).toImageHolder()
+        }
         
         return Track(
             id = driveFile.id,
@@ -71,11 +83,11 @@ object DriveToEchoMapper {
                 Album(
                     id = it,
                     title = it,
-                    cover = coverUrl.toImageHolder()
+                    cover = coverHolder
                 )
             },
             duration = customMeta?.duration,
-            cover = coverUrl.toImageHolder(),
+            cover = coverHolder,
             extras = buildMap {
                 if (MediaFileUtils.isVideoFile(driveFile.title)) {
                     put(VIDEO_EXTRA_KEY, "true")
