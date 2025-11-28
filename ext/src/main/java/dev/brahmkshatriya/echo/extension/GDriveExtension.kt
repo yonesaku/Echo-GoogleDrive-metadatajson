@@ -93,17 +93,23 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
         return authManager.getCurrentUser()
     }
 
-    override suspend fun onExtensionSelected() {
-        // Load metadata synchronously before anything else
+    override suspend fun onInitialize() {
+        // Load metadata FIRST, before anything else
         try {
-            val jsonContent = this::class.java.classLoader
+            val jsonContent = javaClass.classLoader
                 ?.getResourceAsStream("metadata.json")
                 ?.bufferedReader()
                 ?.use { it.readText() }
-            DriveToEchoMapper.loadCustomMetadata(jsonContent)
+            
+            if (jsonContent != null) {
+                DriveToEchoMapper.loadCustomMetadata(jsonContent)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    override suspend fun onExtensionSelected() {
     }
 
     // Settings
