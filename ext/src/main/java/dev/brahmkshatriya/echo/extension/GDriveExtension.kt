@@ -44,7 +44,6 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
     TrackClient, PlaylistClient, RadioClient {
 
     private val client = OkHttpClient.Builder().build()
-    private val metadataScope = CoroutineScope(Dispatchers.IO)
 
     private lateinit var settings: Settings
     private val authManager = AuthenticationManager()
@@ -57,28 +56,22 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
     override fun setSettings(settings: Settings) {
         this.settings = settings
         
-        // Load custom metadata from URL
-        val metadataUrl = settings.getString("custom_metadata_url")
+        // Load custom metadata from bundled JSON file
+        try {
+            val jsonContent = this::class.java.classLoader
+                ?.getResourceAsStream("metadata.json")
+                ?.bufferedReader()
+                ?.use { it.readText() }
+            DriveToEchoMapper.loadCustomMetadata(jsonContent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         
         this.apiClient = GDriveApiClient(client, authManager)
         this.folderRepo = MusicFolderRepository(apiClient, authManager)
         this.paginationManager = PlaylistPaginationManager(apiClient)
         this.radioService = RadioService(paginationManager)
         this.streamingService = StreamingService(client, authManager)
-        
-        // Fetch metadata from URL if provided
-        if (!metadataUrl.isNullOrBlank()) {
-            metadataScope.launch {
-                try {
-                    val request = Request.Builder().url(metadataUrl).build()
-                    val response = client.newCall(request).execute()
-                    val jsonContent = response.body?.string()
-                    DriveToEchoMapper.loadCustomMetadata(jsonContent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
     }
 
     // Login
@@ -113,14 +106,7 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     // Settings
 
-    override suspend fun getSettingItems() = listOf<Setting>(
-        SettingTextInput(
-            title = "Custom Metadata JSON URL",
-            key = "custom_metadata_url",
-            summary = "GitHub raw URL to your metadata.json file",
-            defaultValue = ""
-        )
-    )
+    override suspend fun getSettingItems() = listOf<Setting>()
 
     // Home Feed
 
@@ -205,14 +191,14 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 }
 
 /*
- * CUSTOM METADATA FROM GITHUB:
+ * BUNDLED METADATA JSON:
  * 
- * 1. Create metadata.json file with your track metadata
- * 2. Upload to GitHub repo (public)
- * 3. Get raw URL: https://raw.githubusercontent.com/user/repo/main/metadata.json
- * 4. Paste URL in extension settings
+ * 1. Create ext/src/main/resources/metadata.json
+ * 2. Put your metadata in that file
+ * 3. Rebuild - metadata is bundled in APK
+ * 4. Loads automatically, no settings needed!
  * 
- * JSON FORMAT:
+ * JSON FORMAT (in resources/metadata.json):
  * {
  *   "metadata": [
  *     {
@@ -227,7 +213,7 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
  * }
  * 
  * CHANGES MADE:
- * ✅ Settings now accepts GitHub raw URL instead of full JSON
- * ✅ Fetches metadata from URL on startup
- * ✅ No character limit issues!
+ * ✅ Loads metadata from bundled resource file
+ * ✅ No network calls, instant loading
+ * ✅ No settings needed
  */
