@@ -33,13 +33,18 @@ import dev.brahmkshatriya.echo.common.models.User
 import dev.brahmkshatriya.echo.common.settings.Setting
 import dev.brahmkshatriya.echo.common.settings.SettingTextInput
 import dev.brahmkshatriya.echo.common.settings.Settings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import okhttp3.Request
 
 class GDriveExtension : ExtensionClient, LoginClient.WebView, 
     HomeFeedClient, LibraryFeedClient, SearchFeedClient, 
     TrackClient, PlaylistClient, RadioClient {
 
     private val client = OkHttpClient.Builder().build()
+    private val metadataScope = CoroutineScope(Dispatchers.IO)
 
     private lateinit var settings: Settings
     private val authManager = AuthenticationManager()
@@ -63,9 +68,9 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
         
         // Fetch metadata from URL if provided
         if (!metadataUrl.isNullOrBlank()) {
-            kotlinx.coroutines.GlobalScope.launch {
+            metadataScope.launch {
                 try {
-                    val request = okhttp3.Request.Builder().url(metadataUrl).build()
+                    val request = Request.Builder().url(metadataUrl).build()
                     val response = client.newCall(request).execute()
                     val jsonContent = response.body?.string()
                     DriveToEchoMapper.loadCustomMetadata(jsonContent)
