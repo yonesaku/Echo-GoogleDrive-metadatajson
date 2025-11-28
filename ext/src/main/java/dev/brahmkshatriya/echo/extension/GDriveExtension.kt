@@ -56,17 +56,6 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
     override fun setSettings(settings: Settings) {
         this.settings = settings
         
-        // Load custom metadata from bundled JSON file
-        try {
-            val jsonContent = this::class.java.classLoader
-                ?.getResourceAsStream("metadata.json")
-                ?.bufferedReader()
-                ?.use { it.readText() }
-            DriveToEchoMapper.loadCustomMetadata(jsonContent)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        
         this.apiClient = GDriveApiClient(client, authManager)
         this.folderRepo = MusicFolderRepository(apiClient, authManager)
         this.paginationManager = PlaylistPaginationManager(apiClient)
@@ -102,6 +91,19 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     override suspend fun getCurrentUser(): User? {
         return authManager.getCurrentUser()
+    }
+
+    override suspend fun onExtensionSelected() {
+        // Load metadata synchronously before anything else
+        try {
+            val jsonContent = this::class.java.classLoader
+                ?.getResourceAsStream("metadata.json")
+                ?.bufferedReader()
+                ?.use { it.readText() }
+            DriveToEchoMapper.loadCustomMetadata(jsonContent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     // Settings
