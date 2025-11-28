@@ -52,14 +52,28 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
     override fun setSettings(settings: Settings) {
         this.settings = settings
         
-        // Load custom metadata into mapper
-        DriveToEchoMapper.loadCustomMetadata(settings.getString("custom_metadata"))
+        // Load custom metadata from URL
+        val metadataUrl = settings.getString("custom_metadata_url")
         
         this.apiClient = GDriveApiClient(client, authManager)
         this.folderRepo = MusicFolderRepository(apiClient, authManager)
         this.paginationManager = PlaylistPaginationManager(apiClient)
         this.radioService = RadioService(paginationManager)
         this.streamingService = StreamingService(client, authManager)
+        
+        // Fetch metadata from URL if provided
+        if (!metadataUrl.isNullOrBlank()) {
+            kotlinx.coroutines.GlobalScope.launch {
+                try {
+                    val request = okhttp3.Request.Builder().url(metadataUrl).build()
+                    val response = client.newCall(request).execute()
+                    val jsonContent = response.body?.string()
+                    DriveToEchoMapper.loadCustomMetadata(jsonContent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // Login
@@ -96,9 +110,9 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     override suspend fun getSettingItems() = listOf<Setting>(
         SettingTextInput(
-            title = "Custom Metadata JSON",
-            key = "custom_metadata",
-            summary = "Override Drive metadata with your own artist/album/artwork info",
+            title = "Custom Metadata JSON URL",
+            key = "custom_metadata_url",
+            summary = "GitHub raw URL to your metadata.json file",
             defaultValue = ""
         )
     )
@@ -186,25 +200,29 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 }
 
 /*
- * CUSTOM METADATA JSON FORMAT:
+ * CUSTOM METADATA FROM GITHUB:
  * 
+ * 1. Create metadata.json file with your track metadata
+ * 2. Upload to GitHub repo (public)
+ * 3. Get raw URL: https://raw.githubusercontent.com/user/repo/main/metadata.json
+ * 4. Paste URL in extension settings
+ * 
+ * JSON FORMAT:
  * {
  *   "metadata": [
  *     {
- *       "fileId": "1ABC123XYZ",
- *       "title": "Song Title",
+ *       "fileId": "1ABC123",
  *       "artist": "Artist Name",
  *       "album": "Album Name",
- *       "albumArt": "https://drive.google.com/uc?export=view&id=1IMG123",
- *       "year": "2024",
+ *       "albumArt": "https://raw.githubusercontent.com/user/repo/main/cover.jpg",
  *       "genre": "Rock",
- *       "duration": 180
+ *       "year": "2024"
  *     }
  *   ]
  * }
  * 
  * CHANGES MADE:
- * ✅ Added custom metadata settings field
- * ✅ Loads metadata in setSettings()
- * ✅ Works with enhanced DriveToEchoMapper
+ * ✅ Settings now accepts GitHub raw URL instead of full JSON
+ * ✅ Fetches metadata from URL on startup
+ * ✅ No character limit issues!
  */
