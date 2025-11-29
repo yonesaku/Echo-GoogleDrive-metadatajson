@@ -9,6 +9,7 @@ import dev.brahmkshatriya.echo.extension.domain.service.RadioService
 import dev.brahmkshatriya.echo.extension.domain.service.StreamingService
 import dev.brahmkshatriya.echo.extension.ui.FeedBuilder
 import dev.brahmkshatriya.echo.extension.util.MediaFileUtils
+import dev.brahmkshatriya.echo.extension.data.MetadataManager
 import dev.brahmkshatriya.echo.common.clients.ExtensionClient
 import dev.brahmkshatriya.echo.common.clients.HomeFeedClient
 import dev.brahmkshatriya.echo.common.clients.LibraryFeedClient
@@ -30,14 +31,8 @@ import dev.brahmkshatriya.echo.common.models.Shelf
 import dev.brahmkshatriya.echo.common.models.Streamable
 import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.common.models.User
-import dev.brahmkshatriya.echo.common.settings.Setting
-import dev.brahmkshatriya.echo.common.settings.SettingTextInput
 import dev.brahmkshatriya.echo.common.settings.Settings
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
-import okhttp3.Request
 
 class GDriveExtension : ExtensionClient, LoginClient.WebView, 
     HomeFeedClient, LibraryFeedClient, SearchFeedClient, 
@@ -55,6 +50,9 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
     override fun setSettings(settings: Settings) {
         this.settings = settings
+        
+        // Initialize metadata manager
+        MetadataManager.initialize()
         
         this.apiClient = GDriveApiClient(client, authManager)
         this.folderRepo = MusicFolderRepository(apiClient, authManager)
@@ -93,28 +91,9 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
         return authManager.getCurrentUser()
     }
 
-    override suspend fun onInitialize() {
-        // Load metadata FIRST, before anything else
-        try {
-            val jsonContent = javaClass.classLoader
-                ?.getResourceAsStream("metadata.json")
-                ?.bufferedReader()
-                ?.use { it.readText() }
-            
-            if (jsonContent != null) {
-                DriveToEchoMapper.loadCustomMetadata(jsonContent)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    override suspend fun onExtensionSelected() {
-    }
-
     // Settings
 
-    override suspend fun getSettingItems() = listOf<Setting>()
+    override suspend fun getSettingItems() = listOf<dev.brahmkshatriya.echo.common.settings.Setting>()
 
     // Home Feed
 
@@ -175,6 +154,7 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
 
         return playlist.copy(
             trackCount = totalTrackCount
+
         )
     }
 
@@ -186,7 +166,6 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
     override suspend fun loadFeed(playlist: Playlist): Feed<Shelf>? = null 
 
     // Radio
-    
     override suspend fun radio(item: EchoMediaItem, context: EchoMediaItem?): Radio {
         return radioService.createRadio(item, context)
     }
@@ -197,31 +176,3 @@ class GDriveExtension : ExtensionClient, LoginClient.WebView,
         return radioService.loadRadioTracks(radio)
     }
 }
-
-/*
- * BUNDLED METADATA JSON:
- * 
- * 1. Create ext/src/main/resources/metadata.json
- * 2. Put your metadata in that file
- * 3. Rebuild - metadata is bundled in APK
- * 4. Loads automatically, no settings needed!
- * 
- * JSON FORMAT (in resources/metadata.json):
- * {
- *   "metadata": [
- *     {
- *       "fileId": "1ABC123",
- *       "artist": "Artist Name",
- *       "album": "Album Name",
- *       "albumArt": "https://raw.githubusercontent.com/user/repo/main/cover.jpg",
- *       "genre": "Rock",
- *       "year": "2024"
- *     }
- *   ]
- * }
- * 
- * CHANGES MADE:
- * ✅ Loads metadata from bundled resource file
- * ✅ No network calls, instant loading
- * ✅ No settings needed
- */
