@@ -31,8 +31,8 @@ object DriveToEchoMapper {
                 dev.brahmkshatriya.echo.common.models.Album(id = "", title = it) 
             },
             cover = coverUrl.toImageHolder(),
-            releaseDate = metadata?.year?.toString(),
-            genre = metadata?.genre,
+            year = metadata?.year,
+            genres = metadata?.genre?.let { listOf(it) } ?: emptyList(),
             extras = buildMap {
                 if (MediaFileUtils.isVideoFile(driveFile.title)) {
                     put(VIDEO_EXTRA_KEY, "true")
