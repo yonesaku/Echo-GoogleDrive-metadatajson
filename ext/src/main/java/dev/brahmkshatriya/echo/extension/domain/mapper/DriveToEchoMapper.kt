@@ -1,14 +1,12 @@
-
 package dev.brahmkshatriya.echo.extension.domain.mapper
 
 import dev.brahmkshatriya.echo.common.models.ImageHolder.Companion.toImageHolder
 import dev.brahmkshatriya.echo.common.models.Playlist
 import dev.brahmkshatriya.echo.common.models.Track
+import dev.brahmkshatriya.echo.common.models.Date
 import dev.brahmkshatriya.echo.extension.DriveFile
 import dev.brahmkshatriya.echo.extension.util.MediaFileUtils
 import dev.brahmkshatriya.echo.extension.data.MetadataManager
-import java.util.Date
-import java.util.Calendar
 
 object DriveToEchoMapper {
 
@@ -24,17 +22,9 @@ object DriveToEchoMapper {
         val coverUrl = metadata?.albumArt 
             ?: MediaFileUtils.getThumbnailUrl(driveFile.id)
         
-        // Convert year to Date if available
+        // Convert year to Echo Date if available
         val releaseDate = metadata?.year?.let { year ->
-            Calendar.getInstance().apply {
-                set(Calendar.YEAR, year)
-                set(Calendar.MONTH, 0) // January
-                set(Calendar.DAY_OF_MONTH, 1)
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.time
+            Date(year = year)
         }
         
         return Track(
