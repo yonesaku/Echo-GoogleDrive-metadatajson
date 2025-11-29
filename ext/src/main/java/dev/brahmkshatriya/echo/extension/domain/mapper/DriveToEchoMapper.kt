@@ -1,3 +1,4 @@
+
 package dev.brahmkshatriya.echo.extension.domain.mapper
 
 import dev.brahmkshatriya.echo.common.models.ImageHolder.Companion.toImageHolder
@@ -6,6 +7,8 @@ import dev.brahmkshatriya.echo.common.models.Track
 import dev.brahmkshatriya.echo.extension.DriveFile
 import dev.brahmkshatriya.echo.extension.util.MediaFileUtils
 import dev.brahmkshatriya.echo.extension.data.MetadataManager
+import java.util.Date
+import java.util.Calendar
 
 object DriveToEchoMapper {
 
@@ -16,12 +19,23 @@ object DriveToEchoMapper {
         val metadata = MetadataManager.getMetadata(driveFile.id)
         
         // Use metadata if available, otherwise fall back to defaults
-        val title = metadata?.let {
-            MediaFileUtils.cleanTitle(driveFile.title)
-        } ?: MediaFileUtils.cleanTitle(driveFile.title)
+        val title = MediaFileUtils.cleanTitle(driveFile.title)
         
         val coverUrl = metadata?.albumArt 
             ?: MediaFileUtils.getThumbnailUrl(driveFile.id)
+        
+        // Convert year to Date if available
+        val releaseDate = metadata?.year?.let { year ->
+            Calendar.getInstance().apply {
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, 0) // January
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time
+        }
         
         return Track(
             id = driveFile.id,
@@ -31,7 +45,7 @@ object DriveToEchoMapper {
                 dev.brahmkshatriya.echo.common.models.Album(id = "", title = it) 
             },
             cover = coverUrl.toImageHolder(),
-            year = metadata?.year,
+            releaseDate = releaseDate,
             genres = metadata?.genre?.let { listOf(it) } ?: emptyList(),
             extras = buildMap {
                 if (MediaFileUtils.isVideoFile(driveFile.title)) {
