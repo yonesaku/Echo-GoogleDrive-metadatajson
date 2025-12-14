@@ -11,7 +11,8 @@ data class TrackMetadata(
     val album: String? = null,
     val albumArt: String? = null,
     val genre: String? = null,
-    val year: Int? = null
+    val year: Int? = null,
+    val trackNumber: Int? = null
 )
 
 @Serializable
