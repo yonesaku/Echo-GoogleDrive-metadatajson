@@ -37,12 +37,14 @@ object DriveToEchoMapper {
             cover = coverUrl.toImageHolder(),
             releaseDate = releaseDate,
             genres = metadata?.genre?.let { listOf(it) } ?: emptyList(),
+            albumOrderNumber = metadata?.trackNumber?.toLong(),
             extras = buildMap {
                 if (MediaFileUtils.isVideoFile(driveFile.title)) {
                     put(VIDEO_EXTRA_KEY, "true")
                 }
                 metadata?.genre?.let { put("genre", it) }
                 metadata?.year?.let { put("year", it.toString()) }
+                metadata?.trackNumber?.let { put("trackNumber", it.toString()) }
             }
         )
     }
