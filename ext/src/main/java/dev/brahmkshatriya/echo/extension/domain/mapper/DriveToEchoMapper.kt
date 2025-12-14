@@ -66,6 +66,10 @@ object DriveToEchoMapper {
         return files
             .filter { MediaFileUtils.isMediaFile(it.title) }
             .map { toTrack(it) }
+            .sortedWith(compareBy(
+                { it.albumOrderNumber ?: Long.MAX_VALUE }, // Sort by track number, unknowns go to end
+                { it.title } // Then by title as fallback
+            ))
     }
 
     fun toPlaylists(files: List<DriveFile>): List<Playlist> {
